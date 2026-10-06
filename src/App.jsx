@@ -157,7 +157,7 @@ export default function App() {
     showToast('Logged out securely.');
   };
 
-  const handleDirectImageUpload = (e) => {
+const handleDirectImageUpload = (e) => {
     const file = e.target.files[0];
     if (!file) return;
 
@@ -169,9 +169,39 @@ export default function App() {
     setIsUploadingImage(true);
     const reader = new FileReader();
     reader.onload = (uploadEvent) => {
-      setFormImageUrl(uploadEvent.target.result);
-      setIsUploadingImage(false);
-      showToast('Land photo uploaded successfully!');
+      const img = new Image();
+      img.onload = () => {
+        // Resize image to prevent localStorage quota overflow
+        const canvas = document.createElement('canvas');
+        const MAX_WIDTH = 800;
+        const MAX_HEIGHT = 600;
+        let width = img.width;
+        let height = img.height;
+
+        if (width > height) {
+          if (width > MAX_WIDTH) {
+            height *= MAX_WIDTH / width;
+            width = MAX_WIDTH;
+          }
+        } else {
+          if (height > MAX_HEIGHT) {
+            width *= MAX_HEIGHT / height;
+            height = MAX_HEIGHT;
+          }
+        }
+
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, width, height);
+        
+        // Compress to compressed JPEG
+        const compressedDataUrl = canvas.toDataURL('image/jpeg', 0.7);
+        setFormImageUrl(compressedDataUrl);
+        setIsUploadingImage(false);
+        showToast('Land photo compressed and uploaded successfully!');
+      };
+      img.src = uploadEvent.target.result;
     };
     reader.onerror = () => {
       setIsUploadingImage(false);
@@ -179,7 +209,6 @@ export default function App() {
     };
     reader.readAsDataURL(file);
   };
-
   const metrics = useMemo(() => {
     const totalCount = parcels.length;
     const totalAreaAcres = parcels.reduce((acc, p) => {
